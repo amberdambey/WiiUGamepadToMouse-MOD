@@ -5,7 +5,7 @@ A fork of WiiUGamepadToMouse by FIX94 with a few new features.
 Usage
 -----
 
-To use this tool, you will need [MiisendU](http://wiiubrew.org/wiki/UsendMii#Downloads) by Crayon2000 on your Wii U.
+To use this tool, you will need [MiisendU](https://github.com/Crayon2000/MiisendU-Wii-U) by Crayon2000 on your Wii U.
 
 With the client running on your Wii U, enter the IP address of your computer and press A. On your computer, run WiiUGamepadToMouse.exe and configure the settings to the way you wish and click Start Server.
 
