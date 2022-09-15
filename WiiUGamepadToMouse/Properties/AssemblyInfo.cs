@@ -6,11 +6,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("WiiUGamepadToMouse")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("Modification of WiiUGamepadToMouse by FIX94, modded by AmberDambey")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("WiiUGamepadToMouse")]
-[assembly: AssemblyCopyright("Copyright ©  2019-2020 FIX94")]
+[assembly: AssemblyProduct("WiiUGamepadToMouseMod")]
+[assembly: AssemblyCopyright("Copyright ©  2019-2020 FIX94, 2021-2022 AmberDambey")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

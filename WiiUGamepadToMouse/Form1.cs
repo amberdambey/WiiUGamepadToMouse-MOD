@@ -40,6 +40,8 @@ namespace WiiUGamepadToMouse
         System.Timers.Timer ourTimer = null;
         private int curTicks = 0;
         private bool wasScrolling = false;
+        private bool trackpadMode;
+
         public Form1()
         {
             InitializeComponent();
@@ -239,6 +241,16 @@ namespace WiiUGamepadToMouse
             VPAD_BUTTON_STICK_R = 0x00020000,
             VPAD_BUTTON_STICK_L = 0x00040000;
 
+        // timer to handle updating modified settings
+        private void timer1_Tick(object sender, EventArgs e)
+        {
+            checkBox3.Checked = trackpadMode;
+        }
+
+        private void checkBox3_CheckedChanged(object sender, EventArgs e)
+        {
+            trackpadMode = checkBox3.Checked;
+        }
 
         private void Serverthread()
         {
@@ -247,6 +259,12 @@ namespace WiiUGamepadToMouse
             UdpClient udpClient = new UdpClient(ipep);
             udpClient.Client.ReceiveTimeout = 200;
             IPEndPoint sender = new IPEndPoint(IPAddress.Any, 0);
+            int oldTpX = 0, oldTpY = 0;
+            int cursorX = 0, cursorY = 0;
+            int currentCX = 0, currentCY = 0;
+            bool oldTouched = false;
+            bool willClick = false;
+            int previousHold = 0;
 
             while (started)
             {
@@ -268,7 +286,7 @@ namespace WiiUGamepadToMouse
                 XElement wiiUGamePad = XElement.Load(jsonReader).Element("wiiUGamePad");
                 int hold = Int32.Parse(wiiUGamePad.Element("hold").Value);
                 int tpTouch = Int32.Parse(wiiUGamePad.Element("tpTouch").Value);
-                int tpX = Int32.Parse(wiiUGamePad.Element("tpX").Value);
+                int tpX = (int)(Int32.Parse(wiiUGamePad.Element("tpX").Value)*(854.0/480.0));
                 int tpY = Int32.Parse(wiiUGamePad.Element("tpY").Value);
                 Double lStickY = Double.Parse(wiiUGamePad.Element("lStickY").Value, CultureInfo.InvariantCulture);
                 Double rStickY = Double.Parse(wiiUGamePad.Element("rStickY").Value, CultureInfo.InvariantCulture);
@@ -284,17 +302,55 @@ namespace WiiUGamepadToMouse
                 //first, translate touchscreen info to mouse position
                 if (tpTouch != 0)
                 {
+                    if (!oldTouched)
+                    {
+                        oldTpX = tpX;
+                        oldTpY = tpY;
+                        willClick = trackpadMode;
+                        if (!trackpadMode)
+                        {
+                            oldTpX = 0;
+                            oldTpY = 0;
+                            cursorX = 0;
+                            cursorY = 0;
+                        }
+                    }
+
                     input[0].MouseInput.Flags |= MouseEventAbsolute | MouseEventMove;
                     double inputXscale = (65535.0 / (double)SystemInformation.VirtualScreen.Width);
                     double inputYscale = (65535.0 / (double)SystemInformation.VirtualScreen.Height);
-                    double touchXbase = ((double)tpX * multi) + xOffset;
-                    double touchYbase = ((double)tpY * multi) + yOffset;
+                    double touchXbase = ((tpX - oldTpX + cursorX) * multi) + xOffset;
+                    double touchYbase = ((tpY - oldTpY + cursorY) * multi) + yOffset;
+                    currentCX = (tpX - oldTpX + cursorX);
+                    currentCY = (tpY - oldTpY + cursorY);
                     input[0].MouseInput.X = (int)(touchXbase * inputXscale);
                     input[0].MouseInput.Y = (int)(touchYbase * inputYscale);
+
+                    if (cursorX > currentCX + 10 || cursorY > currentCY + 10 || cursorX < currentCX - 10 || cursorY < currentCY - 10)
+                    {
+                        willClick = false;
+                    }
+
                     //also allow left clicks with touchscreen if requested
                     if (touchleft) left = true;
+                } 
+                else if (oldTouched)
+                {
+                    if (willClick && checkBox4.Checked)
+                    {
+                        left = true;
+                    }
+                    cursorX = currentCX;
+                    cursorY = currentCY;
                 }
-                
+                oldTouched = (tpTouch != 0);
+
+                // toggle trackpad mode if x is pressed
+                if (( (hold&(previousHold^0xffffffff)) & VPAD_BUTTON_X) != 0)
+                {
+                    trackpadMode = !trackpadMode;
+                }
+
                 //process buttons for left/right/middle clicks
                 if ((hold & (VPAD_BUTTON_A | VPAD_BUTTON_ZL | VPAD_BUTTON_ZR)) != 0)
                     left = true;
@@ -354,6 +410,8 @@ namespace WiiUGamepadToMouse
 
                 //finally send our mouse data to OS
                 SendInput(1, input, Marshal.SizeOf(input[0]));
+
+                previousHold = hold;
             }
             udpClient.Close();
         }
