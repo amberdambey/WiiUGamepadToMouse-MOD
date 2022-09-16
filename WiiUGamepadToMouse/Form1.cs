@@ -41,6 +41,7 @@ namespace WiiUGamepadToMouse
         private int curTicks = 0;
         private bool wasScrolling = false;
         private bool trackpadMode;
+        private int aspectX = 854;
 
         public Form1()
         {
@@ -60,6 +61,10 @@ namespace WiiUGamepadToMouse
 
             checkBox1.Checked = Properties.Settings.Default.touchLeft;
             checkBox2.Checked = Properties.Settings.Default.autoStart;
+            checkBox3.Checked = Properties.Settings.Default.trackpadMode;
+            numericUpDown3.Value = Properties.Settings.Default.aspectX;
+            trackpadMode = checkBox3.Checked;
+            aspectX = (int)numericUpDown3.Value;
 
             FormClosing += DoExit;
             label2.Text = "Stopped";
@@ -102,7 +107,7 @@ namespace WiiUGamepadToMouse
         private void updateMulti()
         {
             multi = (double)(trackBar1.Value) * 12.5 / 100.0;
-            label4.Text = multi.ToString() + "x (" + (int)(854.0 * multi) + "x" + (int)(480.0 * multi) + ")";
+            label4.Text = multi.ToString() + "x (" + (int)(aspectX * multi) + "x" + (int)(480.0 * multi) + ")";
         }
 
         private void trackBar1_ValueChanged(Object sender, EventArgs e)
@@ -241,7 +246,15 @@ namespace WiiUGamepadToMouse
             VPAD_BUTTON_STICK_R = 0x00020000,
             VPAD_BUTTON_STICK_L = 0x00040000;
 
+        private void numericUpDown3_ValueChanged(object sender, EventArgs e)
+        {
+            aspectX = (int)numericUpDown3.Value;
+            Properties.Settings.Default.aspectX = aspectX;
+            updateMulti();
+        }
+
         // timer to handle updating modified settings
+        // 2 timers are running; the 80ms timer and this 100ms timer
         private void timer1_Tick(object sender, EventArgs e)
         {
             checkBox3.Checked = trackpadMode;
@@ -250,6 +263,7 @@ namespace WiiUGamepadToMouse
         private void checkBox3_CheckedChanged(object sender, EventArgs e)
         {
             trackpadMode = checkBox3.Checked;
+            Properties.Settings.Default.trackpadMode = trackpadMode;
         }
 
         private void Serverthread()
@@ -286,7 +300,7 @@ namespace WiiUGamepadToMouse
                 XElement wiiUGamePad = XElement.Load(jsonReader).Element("wiiUGamePad");
                 int hold = Int32.Parse(wiiUGamePad.Element("hold").Value);
                 int tpTouch = Int32.Parse(wiiUGamePad.Element("tpTouch").Value);
-                int tpX = (int)(Int32.Parse(wiiUGamePad.Element("tpX").Value)*(854.0/480.0));
+                int tpX = (int)(Int32.Parse(wiiUGamePad.Element("tpX").Value)*(aspectX/854.0));
                 int tpY = Int32.Parse(wiiUGamePad.Element("tpY").Value);
                 Double lStickY = Double.Parse(wiiUGamePad.Element("lStickY").Value, CultureInfo.InvariantCulture);
                 Double rStickY = Double.Parse(wiiUGamePad.Element("rStickY").Value, CultureInfo.InvariantCulture);

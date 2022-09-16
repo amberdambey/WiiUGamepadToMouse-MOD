@@ -17,5 +17,14 @@
     <Setting Name="autoStart" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="trackpadMode" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="aspectX" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">854</Value>
+    </Setting>
+    <Setting Name="aspectY" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">480</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
