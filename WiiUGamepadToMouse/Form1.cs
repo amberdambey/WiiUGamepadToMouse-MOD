@@ -34,23 +34,20 @@ namespace WiiUGamepadToMouse
         private bool prevleft = false;
         private bool prevright = false;
         private bool prevmiddle = false;
-        private int xOffset = 0;
-        private int yOffset = 0;
+        public int xOffset = 0;
+        public int yOffset = 0;
 
         System.Timers.Timer ourTimer = null;
         private int curTicks = 0;
         private bool wasScrolling = false;
         private bool trackpadMode;
-        private int aspectX = 854;
+        public int aspectX = 854;
+        public int aspectY = 480;
 
         public Form1()
         {
             InitializeComponent();
             //clamp down settings if they were tampered with
-            int refInt = Properties.Settings.Default.multi;
-            clamp(ref refInt, 8, 80);
-            trackBar1.Value = Properties.Settings.Default.multi = refInt;
-
             decimal refDec = Properties.Settings.Default.xOffset;
             clamp(ref refDec, -9999, 9999);
             numericUpDown1.Value = Properties.Settings.Default.xOffset = refDec;
@@ -63,13 +60,15 @@ namespace WiiUGamepadToMouse
             checkBox2.Checked = Properties.Settings.Default.autoStart;
             checkBox3.Checked = Properties.Settings.Default.trackpadMode;
             numericUpDown3.Value = Properties.Settings.Default.aspectX;
+            numericUpDown4.Value = Properties.Settings.Default.aspectY;
             trackpadMode = checkBox3.Checked;
             aspectX = (int)numericUpDown3.Value;
+            aspectY = (int)numericUpDown4.Value;
 
             FormClosing += DoExit;
             label2.Text = "Stopped";
             updateMulti(); //first update
-            trackBar1.ValueChanged += trackBar1_ValueChanged;
+            // trackBar1.ValueChanged += trackBar1_ValueChanged;
             numericUpDown1.KeyUp += numericUpDown1_ValueChanged;
             numericUpDown2.KeyUp += numericUpDown2_ValueChanged;
 
@@ -106,15 +105,16 @@ namespace WiiUGamepadToMouse
 
         private void updateMulti()
         {
-            multi = (double)(trackBar1.Value) * 12.5 / 100.0;
-            label4.Text = multi.ToString() + "x (" + (int)(aspectX * multi) + "x" + (int)(480.0 * multi) + ")";
+            /* multi = (double)(trackBar1.Value) * 12.5 / 100.0;
+            label4.Text = multi.ToString() + "x (" + (int)(aspectX * multi) + "x" + (int)(480.0 * multi) + ")"; */
+            multi = 1.0;
         }
 
-        private void trackBar1_ValueChanged(Object sender, EventArgs e)
+        /* private void trackBar1_ValueChanged(Object sender, EventArgs e)
         {
             Properties.Settings.Default.multi = trackBar1.Value;
             updateMulti();
-        }
+        } */
 
         private void checkBox1_CheckedChanged(object sender, EventArgs e)
         {
@@ -246,10 +246,28 @@ namespace WiiUGamepadToMouse
             VPAD_BUTTON_STICK_R = 0x00020000,
             VPAD_BUTTON_STICK_L = 0x00040000;
 
+        private void button3_Click(object sender, EventArgs e)
+        {
+            // Open the size view window and resize it
+            SizeView sizeView = new SizeView();
+            sizeView.form1 = this;
+            sizeView.Width = aspectX;
+            sizeView.Height = aspectY;
+            sizeView.Location = new Point(xOffset, yOffset);
+            sizeView.Show();
+        }
+
         private void numericUpDown3_ValueChanged(object sender, EventArgs e)
         {
             aspectX = (int)numericUpDown3.Value;
             Properties.Settings.Default.aspectX = aspectX;
+            updateMulti();
+        }
+
+        private void numericUpDown4_ValueChanged(object sender, EventArgs e)
+        {
+            aspectY = (int)numericUpDown4.Value;
+            Properties.Settings.Default.aspectY = aspectY;
             updateMulti();
         }
 
@@ -273,12 +291,15 @@ namespace WiiUGamepadToMouse
             UdpClient udpClient = new UdpClient(ipep);
             udpClient.Client.ReceiveTimeout = 200;
             IPEndPoint sender = new IPEndPoint(IPAddress.Any, 0);
-            int oldTpX = 0, oldTpY = 0;
-            int cursorX = 0, cursorY = 0;
-            int currentCX = 0, currentCY = 0;
-            bool oldTouched = false;
-            bool willClick = false;
-            int previousHold = 0;
+            int oldTpX = 0, oldTpY = 0; // Initial touch points, used for trackpad mode
+            int prevTpX = 0, prevTpY = 0; // Last touch points, used for trackpad mode
+            int cursorX = 0, cursorY = 0; // Virtual cursor position, used for trackpad mode
+            int currentCX = 0, currentCY = 0; // Current (new) cursor position
+            bool oldTouched = false; // Whether or not touch input happened on the last UDP packet
+            bool willClick = false; // Whether or not we should send a click event to the input system
+            int previousHold = 0; // Last button state for the Wii U gamepad
+
+            double touchTraversal = 0.0; // How far the touchpoint has moved from the original touchpoint, used for trackpad mode
 
             while (started)
             {
@@ -301,7 +322,7 @@ namespace WiiUGamepadToMouse
                 int hold = Int32.Parse(wiiUGamePad.Element("hold").Value);
                 int tpTouch = Int32.Parse(wiiUGamePad.Element("tpTouch").Value);
                 int tpX = (int)(Int32.Parse(wiiUGamePad.Element("tpX").Value)*(aspectX/854.0));
-                int tpY = Int32.Parse(wiiUGamePad.Element("tpY").Value);
+                int tpY = (int)(Int32.Parse(wiiUGamePad.Element("tpY").Value)*(aspectY/480.0));
                 Double lStickY = Double.Parse(wiiUGamePad.Element("lStickY").Value, CultureInfo.InvariantCulture);
                 Double rStickY = Double.Parse(wiiUGamePad.Element("rStickY").Value, CultureInfo.InvariantCulture);
 
@@ -320,27 +341,35 @@ namespace WiiUGamepadToMouse
                     {
                         oldTpX = tpX;
                         oldTpY = tpY;
+                        cursorX = Cursor.Position.X;
+                        cursorY = Cursor.Position.Y;
                         willClick = trackpadMode;
+                        touchTraversal = 0.0;
                         if (!trackpadMode)
                         {
                             oldTpX = 0;
                             oldTpY = 0;
-                            cursorX = 0;
-                            cursorY = 0;
+                            cursorX = xOffset;
+                            cursorY = yOffset;
                         }
                     }
 
-                    input[0].MouseInput.Flags |= MouseEventAbsolute | MouseEventMove;
-                    double inputXscale = (65535.0 / (double)SystemInformation.VirtualScreen.Width);
-                    double inputYscale = (65535.0 / (double)SystemInformation.VirtualScreen.Height);
-                    double touchXbase = ((tpX - oldTpX + cursorX) * multi) + xOffset;
-                    double touchYbase = ((tpY - oldTpY + cursorY) * multi) + yOffset;
-                    currentCX = (tpX - oldTpX + cursorX);
-                    currentCY = (tpY - oldTpY + cursorY);
-                    input[0].MouseInput.X = (int)(touchXbase * inputXscale);
-                    input[0].MouseInput.Y = (int)(touchYbase * inputYscale);
+                    // input[0].MouseInput.Flags |= MouseEventAbsolute | MouseEventMove;
+                    // double inputXscale = (65535.0 / (double)SystemInformation.VirtualScreen.Width);
+                    // double inputYscale = (65535.0 / (double)SystemInformation.VirtualScreen.Height);
+                    // double touchXbase = ((tpX - oldTpX + cursorX) * multi) + xOffset;
+                    // double touchYbase = ((tpY - oldTpY + cursorY) * multi) + yOffset;
+                    touchTraversal += Math.Sqrt(((tpX - oldTpX) * (tpX - oldTpX)) + ((tpY - oldTpY) * (tpY - oldTpY)));
+                    if (touchTraversal > 100.0 || !trackpadMode)
+                    {
+                        currentCX = tpX - oldTpX + cursorX;
+                        currentCY = tpY - oldTpY + cursorY;
+                    }
+                    // input[0].MouseInput.X = (int)(touchXbase * inputXscale);
+                    // input[0].MouseInput.Y = (int)(touchYbase * inputYscale);
+                    Cursor.Position = new Point(currentCX, currentCY);
 
-                    if (cursorX > currentCX + 10 || cursorY > currentCY + 10 || cursorX < currentCX - 10 || cursorY < currentCY - 10)
+                    if (touchTraversal >= 10.0)
                     {
                         willClick = false;
                     }
@@ -360,7 +389,13 @@ namespace WiiUGamepadToMouse
                 oldTouched = (tpTouch != 0);
 
                 // toggle trackpad mode if x is pressed
-                if (( (hold&(previousHold^0xffffffff)) & VPAD_BUTTON_X) != 0)
+                if (((hold & (previousHold ^ 0xffffffff)) & VPAD_BUTTON_X) != 0)
+                {
+                    trackpadMode = !trackpadMode;
+                }
+
+                // toggle always touch mode if y is pressed
+                if (((hold & (previousHold ^ 0xffffffff)) & VPAD_BUTTON_Y) != 0)
                 {
                     trackpadMode = !trackpadMode;
                 }
